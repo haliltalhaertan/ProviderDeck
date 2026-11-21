@@ -20,7 +20,7 @@ def running(loader=None, refresher=None, directory=None, maintenance=None, auto_
         raise AssertionError('ProviderDeck local server feature is not implemented')
     module = importlib.import_module('providerdeck.server')
     server = module.build_server(
-        static_dir=directory or ROOT / 'web',
+        static_dir=directory or ROOT / 'providerdeck' / 'web',
         state_loader=loader or (lambda: {'schema_version': 1, 'providers': [], 'models': [], 'notes': [], 'errors': []}),
         refresher=refresher or (lambda: {'schema_version': 1, 'providers': [], 'models': [], 'notes': [], 'errors': []}),
         port=0,
@@ -256,7 +256,7 @@ class LocalReadTests(unittest.TestCase):
             second = None
             try:
                 with self.assertRaises(OSError):
-                    second = module.build_server(static_dir=ROOT/'web',state_loader=lambda:{'providers':[],'models':[]},refresher=lambda:{'providers':[],'models':[]},port=first.server_port)
+                    second = module.build_server(static_dir=ROOT/'providerdeck'/'web',state_loader=lambda:{'providers':[],'models':[]},refresher=lambda:{'providers':[],'models':[]},port=first.server_port)
             finally:
                 if second is not None:
                     second.server_close()

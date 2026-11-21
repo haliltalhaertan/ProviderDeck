@@ -4,11 +4,36 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "providerdeck"
-version = "0.2.0"
+version = "0.2.1"
 description = "Local, read-only multi-provider AI subscription quota, API balance, and workload cost comparison dashboard with Windows system tray."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
+keywords = [
+    "llm",
+    "claude-code",
+    "codex",
+    "antigravity",
+    "muse-code",
+    "openrouter",
+    "quota-monitor",
+    "system-tray",
+    "pricing",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: System :: Monitoring",
+]
 dependencies = [
     "httpx>=0.27",
     "python-dotenv>=1.0",
@@ -16,8 +41,19 @@ dependencies = [
     "pywin32>=306; sys_platform == 'win32'",
 ]
 
+[project.urls]
+Homepage = "https://github.com/haliltalhaertan/ProviderDeck"
+Repository = "https://github.com/haliltalhaertan/ProviderDeck"
+Issues = "https://github.com/haliltalhaertan/ProviderDeck/issues"
+
 [project.scripts]
 providerdeck = "launch:main"
 
+[tool.setuptools]
+py-modules = ["launch"]
+
 [tool.setuptools.packages.find]
 include = ["providerdeck*"]
+
+[tool.setuptools.package-data]
+providerdeck = ["tray.ico", "web/*"]

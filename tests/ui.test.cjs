@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const core = require('../web/core.js');
+const core = require('../providerdeck/web/core.js');
 
 test('formatUsd: bilinmeyen null, 0 değerinden görsel olarak ayrı', () => {
   assert.equal(core.formatUsd(null), 'Bilinmiyor');

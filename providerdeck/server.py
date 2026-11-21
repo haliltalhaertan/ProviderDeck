@@ -254,7 +254,7 @@ def main(argv=None):
     from .data import data_dir, load_cached_snapshot, refresh_snapshot
     from .maintenance import MaintenanceStore
     maintenance = MaintenanceStore(data_dir() / 'maintenance')
-    folder = Path(__file__).resolve().parents[1]
+    folder = Path(__file__).resolve().parent
     settings = dict(static_dir=folder / 'web', state_loader=load_cached_snapshot, refresher=refresh_snapshot,
                     maintenance=maintenance, nous_test_enabled=not args.no_refresh,
                     auto_refresh_seconds=None if args.no_refresh else AUTO_REFRESH_SECONDS)

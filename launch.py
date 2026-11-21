@@ -47,11 +47,12 @@ def main(argv=None):
     import urllib.request
     import webbrowser
     root = Path(__file__).resolve().parent
+    from providerdeck.data import data_dir
     parser = argparse.ArgumentParser(description='ProviderDeck başlat / durdur')
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--no-tray', action='store_true', help='Bildirim alanı simgesini başlatma')
     parser.add_argument('--offline', action='store_true', help='Önbellekten başlat, ağ isteği yapma')
-    parser.add_argument('--runtime', type=Path, default=root/'data/runtime.json')
+    parser.add_argument('--runtime', type=Path, default=data_dir()/'runtime.json')
     parser.add_argument('--stop', action='store_true')
     args = parser.parse_args(argv)
     url = existing_url(args.runtime)

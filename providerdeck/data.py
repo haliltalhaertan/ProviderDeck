@@ -15,7 +15,14 @@ NOTES = ['Katalog fiyatları tahmindir; hesap/katalog HTTP 200, model yanıtı �
 
 
 def data_dir():
-    return Path(os.environ.get('PROVIDERDECK_DATA_DIR') or Path(__file__).resolve().parents[1] / 'data')
+    if os.environ.get('PROVIDERDECK_DATA_DIR'):
+        return Path(os.environ['PROVIDERDECK_DATA_DIR'])
+    repo_root = Path(__file__).resolve().parents[1]
+    if (repo_root / 'pyproject.toml').is_file():
+        return repo_root / 'data'
+    if os.name == 'nt':
+        return Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'ProviderDeck'
+    return Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share')) / 'providerdeck'
 
 
 def empty_snapshot():
