@@ -9,6 +9,18 @@
 
 Sıfır frontend build adımı (saf HTML/CSS/JS, CDN yok) ve hafif Python yerel HTTP servisi ile çalışır.
 
+![ProviderDeck Paneli (örnek demo verileri)](docs/screenshot-dashboard.png)
+
+> **Windows Sistem Tepsisi Önizlemesi:**
+> ```text
+> ProviderDeck · $30,95 · 14:00
+> Claude: %68 · 5s %82
+> Codex: %74 · 5s %91
+> Copilot: %94
+> Google: %96,4 · 5s %88,5
+> Muse: %64 · 5s %100
+> ```
+
 ---
 
 ## Yapay Zekâ Ajanıyla Tek Adımda Kurulum

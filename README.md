@@ -10,6 +10,18 @@ A **local, read-only, zero-telemetry** dashboard and **Windows system tray** mon
 
 Works with **Claude Code**, **OpenAI Codex**, **Google Antigravity (`agy`)**, **Meta Muse Code (`muse`)**, **GitHub Copilot**, **OpenCode Go/Zen**, **OpenRouter**, **Vercel AI Gateway**, **NVIDIA NIM**, **Nous Portal**, and more — built with vanilla HTML/CSS/JS (zero build step, zero CDN) and a lightweight Python loopback server.
 
+![ProviderDeck Dashboard (synthetic demo data)](docs/screenshot-dashboard.png)
+
+> **Windows System Tray Tooltip Preview:**
+> ```text
+> ProviderDeck · $30,95 · 14:00
+> Claude: %68 · 5s %82
+> Codex: %74 · 5s %91
+> Copilot: %94
+> Google: %96,4 · 5s %88,5
+> Muse: %64 · 5s %100
+> ```
+
 ---
 
 ## Install with an AI Coding Agent
