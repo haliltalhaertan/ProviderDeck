@@ -232,7 +232,7 @@ test('normalizeSnapshot: eksik/yanlış tipte alanlar güvenli boş değerlere i
   assert.equal(n.models.length, 1);
   assert.deepEqual(n.errors, []);
   assert.deepEqual(n.notes, ['n']);
-  assert.deepEqual(n.refresh, { running: false, started_at: null, finished_at: null, error: null });
+  assert.deepEqual(n.refresh, { running: false, offline: false, started_at: null, finished_at: null, error: null });
   const n2 = core.normalizeSnapshot({ providers: [{ id: 'a', name: 'A' }, { name: 'idsiz' }], models: [] });
   assert.deepEqual(Object.keys(n2.providersById), ['a']);
   assert.equal(n2.providers[0].windows.length, 0);
