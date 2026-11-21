@@ -1,0 +1,16 @@
+data/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+tmp*/
+.env
+.env.local
+auth.json
+.credentials.json
+config.yaml

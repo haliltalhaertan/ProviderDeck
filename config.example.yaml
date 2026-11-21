@@ -1,0 +1,8 @@
+# Optional custom provider configuration (save as ~/.config/providerdeck/config.yaml
+# or $PROVIDERDECK_HOME/config.yaml). Built-in providers work with `.env` alone.
+
+providers:
+  # custom-gateway:
+  #   name: My Custom Gateway
+  #   base_url: https://api.example.com/v1
+  #   key_env: MY_CUSTOM_API_KEY

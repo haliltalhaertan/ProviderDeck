@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>ProviderDeck — Sağlayıcı ve model izleme</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/core.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Model tablosuna geç</a>
+
+  <header class="topbar">
+    <button class="icon-btn only-narrow" id="btn-accounts" type="button" aria-controls="accounts" aria-expanded="false">Hesaplar</button>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">ProviderDeck</span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Görünüm">
+      <button role="tab" id="tab-monitor" aria-controls="view-monitor" aria-selected="true" type="button">İzleme</button>
+      <button role="tab" id="tab-compare" aria-controls="view-compare" aria-selected="false" tabindex="-1" type="button">Karşılaştır</button>
+    </nav>
+    <div class="sync" id="sync" aria-live="polite">
+      <span class="sync-dot" id="sync-dot" aria-hidden="true"></span>
+      <span class="sync-text" id="sync-text">Yükleniyor…</span>
+    </div>
+    <a class="icon-btn" href="/maintenance" title="Hata geçmişi, resmî belge kontrolü ve salt-okunur abonelik ajanı">Bakım</a>
+    <button class="btn btn-primary" id="btn-refresh" type="button" title="Hesap ve katalog bilgilerini salt okunur yeniler; model çıkarımı yapılmaz">Yenile</button>
+    <button class="icon-btn" id="btn-theme" type="button" aria-label="Tema değiştir" title="Tema: sistem / koyu / açık">
+      <span id="theme-label">Sistem</span>
+    </button>
+  </header>
+
+  <div class="banner" id="banner" hidden role="status"></div>
+
+  <div class="shell">
+    <aside class="accounts" id="accounts" aria-label="Sağlayıcı hesapları">
+      <div class="accounts-head">
+        <h2 class="h-sec">Hesaplar</h2>
+        <button class="icon-btn only-narrow" id="btn-accounts-close" type="button" aria-label="Hesap panelini kapat">Kapat</button>
+      </div>
+      <dl class="ledger" id="ledger"></dl>
+      <div class="accounts-filter">
+        <button class="chip" id="provider-all" type="button" aria-pressed="true">Tüm sağlayıcılar</button>
+      </div>
+      <div id="provider-list" class="provider-list"></div>
+    </aside>
+
+    <main id="main" class="main" tabindex="-1">
+      <!-- İZLEME -->
+      <section id="view-monitor" role="tabpanel" aria-labelledby="tab-monitor" class="view">
+        <form class="toolbar" id="filters" role="search" autocomplete="off">
+          <div class="field field-search">
+            <label for="q">Ara</label>
+            <input id="q" type="search" placeholder="Model, id veya sağlayıcı  ( / )" spellcheck="false">
+          </div>
+          <fieldset class="field seg" id="billing-filter">
+            <legend>Faturalama</legend>
+            <div class="seg-row">
+              <button type="button" class="chip" data-billing="api" aria-pressed="false">API</button>
+              <button type="button" class="chip" data-billing="subscription" aria-pressed="false">Abonelik</button>
+              <button type="button" class="chip" data-billing="free" aria-pressed="false">Ücretsiz</button>
+              <button type="button" class="chip" data-billing="credits" aria-pressed="false">Kredi</button>
+              <button type="button" class="chip" data-billing="unknown" aria-pressed="false">Bilinmiyor</button>
+            </div>
+          </fieldset>
+          <div class="field">
+            <label for="routes">Rotalar</label>
+            <select id="routes">
+              <option value="hide_blocked">Engellileri gizle</option>
+              <option value="usable">Yalnız kullanılabilir</option>
+              <option value="all">Tümü (engelliler dahil)</option>
+            </select>
+          </div>
+          <div class="field checks">
+            <span class="label">Yetenek</span>
+            <label class="check"><input type="checkbox" id="f-tools"> Araç</label>
+            <label class="check"><input type="checkbox" id="f-vision"> Görsel</label>
+          </div>
+        </form>
+
+        <div class="workload" id="workload" role="group" aria-labelledby="wl-title">
+          <span class="wl-title" id="wl-title">İş yükü / istek</span>
+          <label class="wl-field"><span>Girdi token</span><input id="w-in" type="number" min="0" step="1000" inputmode="numeric"></label>
+          <label class="wl-field"><span>Çıktı token</span><input id="w-out" type="number" min="0" step="100" inputmode="numeric"></label>
+          <label class="wl-field wl-cache"><span>Önbellek isabeti <output id="w-cache-out" for="w-cache">%0</output></span>
+            <input id="w-cache" type="range" min="0" max="100" step="5"></label>
+          <div class="wl-presets" aria-label="Hazır iş yükleri">
+            <button type="button" class="chip" data-preset="chat">Sohbet</button>
+            <button type="button" class="chip" data-preset="agent">Ajan turu</button>
+            <button type="button" class="chip" data-preset="long">Uzun bağlam</button>
+          </div>
+        </div>
+
+        <div class="resultbar">
+          <p class="result-count" id="result-count" aria-live="polite"></p>
+          <p class="result-best" id="result-best"></p>
+        </div>
+
+        <div class="table-wrap" id="table-wrap">
+          <table class="grid" id="grid" aria-describedby="result-count">
+            <thead>
+              <tr>
+                <th scope="col" class="c-name"><button type="button" class="sort" data-sort="name">Model</button></th>
+                <th scope="col" class="c-prov"><button type="button" class="sort" data-sort="provider">Sağlayıcı</button></th>
+                <th scope="col" class="c-route">Rota</th>
+                <th scope="col" class="c-ctx num"><button type="button" class="sort" data-sort="context">Bağlam</button></th>
+                <th scope="col" class="c-price num"><button type="button" class="sort" data-sort="input">Girdi<small>/1M</small></button></th>
+                <th scope="col" class="c-price num"><button type="button" class="sort" data-sort="cache">Önbellek<small>/1M</small></button></th>
+                <th scope="col" class="c-price num"><button type="button" class="sort" data-sort="output">Çıktı<small>/1M</small></button></th>
+                <th scope="col" class="c-cost num"><button type="button" class="sort" data-sort="rank" title="Kullanılabilir rota önce, bilinen USD maliyetine göre">İstek<small>tahmini</small></button></th>
+              </tr>
+            </thead>
+            <tbody id="grid-body"></tbody>
+          </table>
+          <div class="empty" id="grid-empty" hidden></div>
+          <div class="more" id="grid-more" hidden><button type="button" class="btn" id="btn-more"></button></div>
+        </div>
+      </section>
+
+      <!-- KARŞILAŞTIR -->
+      <section id="view-compare" role="tabpanel" aria-labelledby="tab-compare" class="view" hidden>
+        <div class="compare">
+          <div class="cmp-index">
+            <div class="field field-search">
+              <label for="cq">Aynı modeli bul</label>
+              <input id="cq" type="search" placeholder="canonical anahtar veya ad" spellcheck="false">
+            </div>
+            <label class="check"><input type="checkbox" id="c-multi" checked> Yalnız birden çok rotası olanlar</label>
+            <p class="hint" id="cmp-index-count"></p>
+            <ul class="cmp-list" id="cmp-list" role="listbox" aria-label="Karşılaştırılacak model"></ul>
+          </div>
+          <div class="cmp-pane" id="cmp-pane" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="detail" id="detail" aria-label="Ayrıntı" hidden>
+      <div class="detail-head">
+        <h2 class="h-sec" id="detail-title">Ayrıntı</h2>
+        <button class="icon-btn" id="btn-detail-close" type="button" aria-label="Ayrıntıyı kapat">Kapat</button>
+      </div>
+      <div class="detail-body" id="detail-body"></div>
+    </aside>
+  </div>
+
+  <footer class="foot" id="foot"></footer>
+  <div class="scrim" id="scrim" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

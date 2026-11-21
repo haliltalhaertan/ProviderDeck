@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="tr" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProviderDeck — Bakım</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/maintenance.css"><script src="/maintenance.js" defer></script></head>
+<body class="maintenance-page">
+<header class="topbar"><a class="icon-btn" href="/">← Panele dön</a><div class="brand"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">ProviderDeck / Bakım</span></div><span class="maintenance-pill">Otomatik düzeltme kapalı</span><button class="icon-btn" id="m-theme" type="button">Tema</button></header>
+<main class="maintenance-wrap">
+<div class="maintenance-intro"><div><h1>Bağlantı sorunları ve belge denetimi</h1><p>Hesap ve kota sorunlarıyla API değişikliği şüphesi ayrı değerlendirilir. Son iyi veri korunur.</p></div><span class="maintenance-pill" id="m-status" aria-live="polite">Yükleniyor…</span></div>
+<section class="maintenance-controls" aria-label="Belge ve ajan kontrolü"><label for="m-provider">Sağlayıcı<select id="m-provider"></select></label><button class="btn" id="m-docs" type="button">Resmî dokümanı denetle</button><button class="btn btn-primary" id="m-review" type="button" disabled>Abonelik ajanıyla incele</button><p>Belge denetimi yalnız sayfa okur. Ajan incelemesi <strong>Muse Code abonelik kotasını</strong> kullanır; kendiliğinden başlamaz, kod veya hesap ayarı değiştirmez.</p></section>
+<div id="m-message" class="maintenance-message" role="status" aria-live="polite"></div>
+<div class="maintenance-grid"><section class="maintenance-panel"><div class="maintenance-panel-head"><h2>Olay geçmişi</h2><span id="m-count"></span></div><div class="maintenance-table-wrap"><table><thead><tr><th>Sağlayıcı / hata</th><th>Sınıf</th><th>Tekrar</th><th>Durum</th></tr></thead><tbody id="m-incidents"></tbody></table></div><p class="maintenance-small">401/403, biten bakiye veya normal kota sınırı otomatik kod değişikliği nedeni değildir. Aynı tarihli önbelleği tekrar açmak hata sayısını artırmaz.</p></section>
+<section class="maintenance-panel"><h2>Resmî belge</h2><div id="m-document" class="maintenance-detail">Henüz denetlenmedi.</div><h2>Ajan incelemesi</h2><p class="maintenance-small">Yalnız kalıcı entegrasyon hatasında açılır. En çok 3 inceleme/gün; aynı sağlayıcı için 1 saat bekleme. Çalışma süresi sınırlı, yazma ve kabuk kapalıdır.</p><pre id="m-report">Henüz öneri yok. Otomatik uygulama kapalı.</pre></section></div>
+<footer class="maintenance-small">Bir belge metninin değişmesi, API davranışının değiştiğini tek başına kanıtlamaz. Öneriler test edilmeden uygulanmaz; bu sürüm otomatik kod terfisi yapmaz.</footer>
+</main></body></html>

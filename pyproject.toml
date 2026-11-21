@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "providerdeck"
+version = "0.2.0"
+description = "Local, read-only multi-provider AI subscription quota, API balance, and workload cost comparison dashboard with Windows system tray."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+    "PyYAML>=6.0",
+    "pywin32>=306; sys_platform == 'win32'",
+]
+
+[project.scripts]
+providerdeck = "launch:main"
+
+[tool.setuptools.packages.find]
+include = ["providerdeck*"]
