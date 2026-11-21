@@ -1,10 +1,23 @@
 # ProviderDeck
 
-[English README](README.md)
+[![CI](https://github.com/haliltalhaertan/ProviderDeck/actions/workflows/ci.yml/badge.svg)](https://github.com/haliltalhaertan/ProviderDeck/actions/workflows/ci.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-**Abonelik kotalarını** (5 saatlik + haftalık), **API cüzdan bakiyelerini** ve **iş yüküne göre en ucuz model rotalarını** tek ekranda izleyen; **yerel, salt-okunur ve telemetrisiz** web paneli ve Windows sistem tepsisi aracı.
+[English README](README.md) · [Ajan Kurulum Rehberi (`AGENTS.md`)](AGENTS.md)
+
+**Abonelik kotalarını** (5 saatlik + haftalık), **15+ API cüzdan bakiyesini** ve **iş yüküne göre en ucuz model rotalarını** tek ekranda izleyen; **yerel, salt-okunur ve telemetrisiz** web paneli ve Windows sistem tepsisi aracı.
 
 Sıfır frontend build adımı (saf HTML/CSS/JS, CDN yok) ve hafif Python yerel HTTP servisi ile çalışır.
+
+---
+
+## Yapay Zekâ Ajanıyla Tek Adımda Kurulum
+
+Aşağıdaki promptu **Claude Code, Codex, Antigravity, Cursor, Muse Code veya Hermes** içine yapıştırmanız yeterlidir:
+
+```text
+https://github.com/haliltalhaertan/ProviderDeck reposunu yerelde bir klasöre klonla, AGENTS.md dosyasını oku, Python sanal ortamı (.venv) oluşturup requirements.txt bağımlılıklarını kur, birim testlerini çalıştırarak doğrula ve ProviderDeck'i salt-okunur modda (`python launch.py`) başlat. Mevcut CLI kimlik/ayar dosyalarımı değiştirme, hiçbir API anahtarını ekrana basma veya commit etme ve ücretli model isteği atma.
+```
 
 ---
 
@@ -27,10 +40,13 @@ Sıfır frontend build adımı (saf HTML/CSS/JS, CDN yok) ve hafif Python yerel 
 
 ---
 
-## Kurulum ve Çalıştırma
+## Manuel Kurulum ve Çalıştırma
 
 ```bash
+git clone https://github.com/haliltalhaertan/ProviderDeck.git
+cd ProviderDeck
 python -m venv .venv
+
 # Windows PowerShell:
 .venv\Scripts\Activate.ps1
 # Linux / macOS:
