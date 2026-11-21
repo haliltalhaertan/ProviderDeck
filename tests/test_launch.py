@@ -32,7 +32,7 @@ class LauncherTests(unittest.TestCase):
             with patch.object(module, 'existing_url', return_value='http://127.0.0.1:8766'), patch('subprocess.Popen') as popen, patch('webbrowser.open') as browse:
                 self.assertEqual(module.main(['--no-browser', '--runtime', str(runtime)]), 0)
                 popen.assert_called_once()
-                self.assertEqual(popen.call_args.args[0][1:], ['-m', 'providerdeck.tray', '--runtime', str(runtime)])
+                self.assertEqual(popen.call_args.args[0][1:], ['-m', 'providerdeck.tray', '--runtime', str(runtime.resolve())])
                 browse.assert_not_called()
                 popen.reset_mock()
                 self.assertEqual(module.main(['--no-browser', '--no-tray', '--runtime', str(runtime)]), 0)
