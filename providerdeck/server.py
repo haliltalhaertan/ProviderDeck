@@ -125,10 +125,10 @@ class NousTestGate:
 
 
 def build_server(*, static_dir: Path, state_loader, refresher, port: int = 0, maintenance=None,
-                 nous_test_enabled=True, auto_refresh_seconds=None):
+                 nous_test_enabled=True, auto_refresh_seconds=None, refresh_enabled=True):
     store = SnapshotStore(state_loader, refresher, observer=maintenance.observe if maintenance else None,
-                          auto_refresh_seconds=auto_refresh_seconds)
-    nous_test = NousTestGate(nous_test_enabled)
+                          auto_refresh_seconds=auto_refresh_seconds if refresh_enabled else None)
+    nous_test = NousTestGate(nous_test_enabled and refresh_enabled)
 
     class Handler(BaseHTTPRequestHandler):
         server_version = 'ProviderDeck/0.1'
@@ -177,6 +177,7 @@ def build_server(*, static_dir: Path, state_loader, refresher, port: int = 0, ma
             path = urlsplit(self.path).path
             if path == '/api/state':
                 state = store.read()
+                state['refresh']['offline'] = not refresh_enabled
                 state['nous_free_test'] = nous_test.state()
                 self.send_json(200, state)
                 return
@@ -211,6 +212,9 @@ def build_server(*, static_dir: Path, state_loader, refresher, port: int = 0, ma
                 self.send_json(status, result)
                 return
             if path in {'/api/maintenance/docs', '/api/maintenance/review'}:
+                if not refresh_enabled:
+                    self.send_json(503, {'error': 'Bakım belge/ajan incelemesi çevrimdışı modda kapalı.'})
+                    return
                 if not maintenance:
                     self.send_json(503, {'error': 'Bakım modülü bu servis örneğinde etkin değil.'})
                     return
@@ -231,6 +235,9 @@ def build_server(*, static_dir: Path, state_loader, refresher, port: int = 0, ma
                 return
             if urlsplit(self.path).path != '/api/refresh':
                 self.send_json(404, {'error': 'Bulunamadı'})
+                return
+            if not refresh_enabled:
+                self.send_json(503, {'error': 'Yenileme çevrimdışı modda kapalı.'})
                 return
             store.request_refresh()
             self.send_json(202, {'accepted': True, 'running': True})
@@ -257,6 +264,7 @@ def main(argv=None):
     folder = Path(__file__).resolve().parent
     settings = dict(static_dir=folder / 'web', state_loader=load_cached_snapshot, refresher=refresh_snapshot,
                     maintenance=maintenance, nous_test_enabled=not args.no_refresh,
+                    refresh_enabled=not args.no_refresh,
                     auto_refresh_seconds=None if args.no_refresh else AUTO_REFRESH_SECONDS)
     try:
         service = build_server(port=args.port, **settings)

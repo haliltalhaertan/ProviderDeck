@@ -300,3 +300,14 @@ test('priceCell: abonelik rotasında 1M fiyatı "dahil" (dolar 0 değil); kredi/
   assert.deepEqual(core.priceCell(cr, 'input_per_million_usd'), { text: '2 kr', kind: 'credits' });
   assert.deepEqual(core.priceCell({}, 'input_per_million_usd'), { text: 'Bilinmiyor', kind: 'unknown' });
 });
+
+test('estimateCost: cacheWritePercent ve topupFeePercent desteklenir', () => {
+  const m = {
+    billing: 'api',
+    pricing: { input_per_million_usd: 3, output_per_million_usd: 15, cache_read_per_million_usd: 0.3, cache_write_per_million_usd: 3.75, request_usd: 0, unit: 'USD' },
+  };
+  const r = core.estimateCost(m, { input: 1000000, output: 0, cachePercent: 50, cacheWritePercent: 25, topupFeePercent: 5 });
+  assert.equal(r.kind, 'usd');
+  assert.ok(Math.abs(r.cost_usd - (0.25 * 3 + 0.5 * 0.3 + 0.25 * 3.75) * 1.05) < 1e-6);
+  assert.equal(r.parts.cache_write, 0.9375);
+});

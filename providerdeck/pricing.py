@@ -30,30 +30,30 @@ def normalize_model(provider_id, raw_model, provider_record=None):
     elif documented_dash_free:
         canonical = canonical[:-5]
     p = raw.get('pricing') or {}
-    price = {k: None for k in ('input_per_million_usd', 'output_per_million_usd', 'cache_read_per_million_usd', 'request_usd')}
+    price = {k: None for k in ('input_per_million_usd', 'output_per_million_usd', 'cache_read_per_million_usd', 'cache_write_per_million_usd', 'request_usd')}
     unit = 'unknown'
     fields, scale = (), 1
     if provider_id in {'openrouter', 'orcarouter'}:
-        fields, scale, unit = ('prompt', 'completion', 'input_cache_read'), 1_000_000, 'USD'
+        fields, scale, unit = ('prompt', 'completion', 'input_cache_read', 'input_cache_write'), 1_000_000, 'USD'
     elif provider_id == 'ai-gateway':
-        fields, scale, unit = ('input', 'output', 'input_cache_read'), 1_000_000, 'USD'
+        fields, scale, unit = ('input', 'output', 'input_cache_read', 'input_cache_write'), 1_000_000, 'USD'
     elif provider_id == 'uberllm':
-        fields, unit = ('input_usd', 'output_usd', 'cache_read_usd'), 'USD'
+        fields, unit = ('input_usd', 'output_usd', 'cache_read_usd', 'cache_write_usd'), 'USD'
     elif provider_id == 'explabs':
-        fields, scale, unit = ('input_nano_usd_per_million_tokens', 'output_nano_usd_per_million_tokens', 'cached_input_nano_usd_per_million_tokens'), 1e-9, 'USD'
+        fields, scale, unit = ('input_nano_usd_per_million_tokens', 'output_nano_usd_per_million_tokens', 'cached_input_nano_usd_per_million_tokens', 'cache_write_nano_usd_per_million_tokens'), 1e-9, 'USD'
     elif provider_id == 'refuseless' and p.get('currency', 'USD') == 'USD':
-        fields, unit = ('input_per_m', 'output_per_m', 'cached_input_per_m'), 'USD'
+        fields, unit = ('input_per_m', 'output_per_m', 'cached_input_per_m', 'cache_write_per_m'), 'USD'
     elif provider_id == 'venice':
         p = {k: v.get('usd') for k, v in (raw.get('model_spec', {}).get('pricing') or {}).items() if isinstance(v, dict)}
-        fields, unit = ('input', 'output', 'cache_input'), 'USD'
+        fields, unit = ('input', 'output', 'cache_input', 'cache_write'), 'USD'
     elif provider_id == 'voidai':
         unit = 'credits'
-    for dest, src in zip(('input_per_million_usd', 'output_per_million_usd', 'cache_read_per_million_usd'), fields):
+    for dest, src in zip(('input_per_million_usd', 'output_per_million_usd', 'cache_read_per_million_usd', 'cache_write_per_million_usd'), fields):
         n = number(p.get(src))
         price[dest] = float(Decimal(str(n)) * Decimal(str(scale))) if n is not None else None
     price['request_usd'] = number(p.get('request')) if unit == 'USD' else None
     if provider_id == 'uberllm':
-        for dest, src in [('input_per_million_usd', 'prompt'), ('output_per_million_usd', 'completion'), ('cache_read_per_million_usd', 'input_cache_read')]:
+        for dest, src in [('input_per_million_usd', 'prompt'), ('output_per_million_usd', 'completion'), ('cache_read_per_million_usd', 'input_cache_read'), ('cache_write_per_million_usd', 'input_cache_write')]:
             n = number(p.get(src))
             if price[dest] is None and n is not None:
                 price[dest] = float(Decimal(str(n)) * Decimal(1_000_000))
@@ -95,12 +95,13 @@ def normalize_model(provider_id, raw_model, provider_record=None):
             'updated_at': record.get('fetched_at'), 'source': record.get('catalog_url') or 'audit', 'warning': warning}
 
 
-def estimate_cost(model, input_tokens, output_tokens, cache_percent=0):
-    """Estimate text token cost; no extra inference, currency conversion or discounts."""
+def estimate_cost(model, input_tokens, output_tokens, cache_percent=0, *, cache_write_percent=0, topup_fee_percent=0):
+    """Estimate text token cost; supports optional cache write and top-up fee percentages."""
     inp, out, hit = number(input_tokens), number(output_tokens), number(cache_percent)
+    write_pct, fee_pct = number(cache_write_percent), number(topup_fee_percent)
     def result(cost=None, warning=None):
         return {'cost_usd': cost, 'warning': warning}
-    if inp is None or out is None or hit is None or hit > 100:
+    if inp is None or out is None or hit is None or write_pct is None or fee_pct is None or hit > 100 or write_pct > 100 or hit + write_pct > 100 or fee_pct > 100:
         return result(warning='Token sayıları ve önbellek oranı geçersiz.')
     if model.get('availability') == 'blocked':
         return result(warning='Bu rota şu anda kullanıma kapalı.')
@@ -109,16 +110,23 @@ def estimate_cost(model, input_tokens, output_tokens, cache_percent=0):
     p = model.get('pricing') or {}
     if p.get('unit') != 'USD':
         return result(warning='USD fiyatı bilinmiyor; kredi birimi dolara çevrilmez.')
-    pi, po, pc = (number(p.get(k)) for k in ('input_per_million_usd', 'output_per_million_usd', 'cache_read_per_million_usd'))
+    pi, po, pc, pw = (number(p.get(k)) for k in ('input_per_million_usd', 'output_per_million_usd', 'cache_read_per_million_usd', 'cache_write_per_million_usd'))
     if (inp and pi is None) or (out and po is None):
         return result(warning='Token fiyatı eksik; sıfır varsayılmadı.')
     warnings = []
     if hit and pc is None:
         pc = pi
         warnings.append('Önbellek fiyatı bilinmiyor; muhafazakâr olarak normal girdi fiyatı kullanıldı.')
-    cost = (inp * ((1-hit/100) * (pi or 0) + hit/100 * (pc or 0)) + out * (po or 0)) / 1_000_000
+    if write_pct and pw is None:
+        pw = pi
+        warnings.append('Önbellek yazma fiyatı bilinmiyor; normal girdi fiyatı kullanıldı.')
+    fresh_frac = max(0.0, 1.0 - (hit + write_pct) / 100.0)
+    cost = (inp * (fresh_frac * (pi or 0) + (hit / 100) * (pc or 0) + (write_pct / 100) * (pw or 0)) + out * (po or 0)) / 1_000_000
     fee = number(p.get('request_usd'))
     cost += fee or 0
+    if fee_pct:
+        cost *= 1.0 + fee_pct / 100.0
+        warnings.append(f'Yükleme komisyonu (+%{fee_pct:g}) dahil edildi.')
     if fee is None:
         warnings.append('İstek ücreti belirtilmemiş; yalnızca bilinen token bedeli hesaplandı.')
     if p.get('variable'):

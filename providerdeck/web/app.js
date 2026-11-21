@@ -170,8 +170,9 @@
     sync.title = gen ? 'Anlık görüntü: ' + fmtDate(gen) : 'Anlık görüntü zamanı bilinmiyor';
     const b = $('btn-refresh');
     const running = vs.phase === 'refreshing';
-    b.disabled = running || vs.phase === 'loading' || vs.phase === 'error';
-    b.textContent = running ? 'Yenileniyor…' : 'Yenile';
+    const offlineMode = !!(S.snap && S.snap.refresh && S.snap.refresh.offline);
+    b.disabled = running || offlineMode || vs.phase === 'loading' || vs.phase === 'error';
+    b.textContent = running ? 'Yenileniyor…' : offlineMode ? 'Çevrimdışı' : 'Yenile';
     b.setAttribute('aria-busy', running ? 'true' : 'false');
 
     const ban = $('banner'); ban.replaceChildren();

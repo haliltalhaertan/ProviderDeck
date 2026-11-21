@@ -294,5 +294,43 @@ class LocalReadTests(unittest.TestCase):
             with urllib.request.urlopen(url+'/maintenance.js',timeout=2) as script:
                 self.assertIn('text/javascript',script.headers.get('Content-Type'))
 
+    def test_offline_mode_blocks_manual_refresh_and_maintenance_network_jobs(self):
+        import tempfile
+        from providerdeck.maintenance import MaintenanceStore
+        called = []
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+            maintenance = MaintenanceStore(Path(folder))
+            module = importlib.import_module('providerdeck.server')
+            srv = module.build_server(
+                static_dir=ROOT / 'providerdeck' / 'web',
+                state_loader=lambda: {'providers': [], 'models': []},
+                refresher=lambda: called.append('refresh') or {'providers': [], 'models': []},
+                port=0,
+                maintenance=maintenance,
+                nous_test_enabled=False,
+                refresh_enabled=False,
+            )
+            thread = threading.Thread(target=srv.serve_forever, daemon=True)
+            thread.start()
+            url = f'http://127.0.0.1:{srv.server_port}'
+            try:
+                with urllib.request.urlopen(url + '/api/state', timeout=2) as resp:
+                    st = json.load(resp)
+                self.assertTrue(st['refresh']['offline'])
+                for path, body in [('/api/refresh', b''), ('/api/maintenance/docs', b'{"provider_id":"openrouter"}'), ('/api/nous-free-test', b'')]:
+                    headers = {'X-ProviderDeck-Request': '1'}
+                    if body:
+                        headers['Content-Type'] = 'application/json'
+                    req = urllib.request.Request(url + path, data=body, headers=headers, method='POST')
+                    with self.assertRaises(urllib.error.HTTPError) as err:
+                        urllib.request.urlopen(req, timeout=2)
+                    self.assertEqual(err.exception.code, 503, path)
+                self.assertEqual(called, [])
+                self.assertFalse(maintenance.state()['busy'])
+            finally:
+                srv.shutdown()
+                srv.server_close()
+                thread.join(timeout=2)
+
 if __name__ == '__main__':
     unittest.main()

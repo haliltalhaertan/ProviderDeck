@@ -380,3 +380,26 @@ class CollectorTests(unittest.TestCase):
             cmd = c._muse_usage_command()
             self.assertIn('usage', ' '.join(cmd))
             self.assertIn('--json', ' '.join(cmd))
+
+    def test_custom_base_url_for_builtin_provider_never_reuses_native_credentials(self):
+        from providerdeck import collectors as c
+        with patch.object(c, 'borrow_claude_token', return_value='synthetic-claude-oauth') as claude_reader, \
+             patch.object(c, 'borrow_codex_auth', return_value=('synthetic-codex-oauth', 'acct-1')) as codex_reader:
+            routes = c.discover_routes(
+                config={'providers': {
+                    'anthropic': {'base_url': 'https://custom-proxy.example/v1'},
+                    'openai-codex': {'base_url': 'https://custom-codex.example/v1'},
+                    'openrouter': {'base_url': 'https://custom-or.example/v1', 'key_env': 'CUSTOM_OR_KEY'},
+                }},
+                auth={'providers': {'openai-codex': {'tokens': {'access_token': 'synthetic-native-codex', 'account_id': 'acct-native'}}}},
+                secrets={'ANTHROPIC_API_KEY': 'sk-ant-api-native', 'OPENROUTER_API_KEY': 'sk-or-native', 'CUSTOM_OR_KEY': 'sk-custom-explicit'},
+            )
+        by_id = {r.id: r for r in routes}
+        self.assertEqual(by_id['anthropic'].credential, '')
+        self.assertFalse(by_id['anthropic'].oauth)
+        self.assertEqual(by_id['anthropic'].kind, 'api')
+        self.assertEqual(by_id['openai-codex'].credential, '')
+        self.assertEqual(by_id['openai-codex'].principal, '')
+        self.assertEqual(by_id['openrouter'].credential, 'sk-custom-explicit')
+        claude_reader.assert_not_called()
+        codex_reader.assert_not_called()

@@ -196,26 +196,35 @@ def discover_routes(*, config=None, auth=None, secrets=None, home=None):
             routes.append(Route('nous', 'Nous Portal', 'https://inference-api.nousresearch.com/v1', str(nous_static_key)))
             continue
         entries = pool.get(pid) or pool.get(raw_pid) or []
-        key = str(secrets.get(conf.get('key_env', ''), '') or conf.get('api_key') or '')
-        if not key:
-            key = next((str(secrets[k]) for k in ENV_KEYS.get(pid, []) if secrets.get(k)), '')
         entry = next((e for e in entries if e.get('access_token') or e.get('api_key')), {})
-        key = key or entry.get('access_token') or entry.get('api_key') or ''
-        tokens = (providers.get(pid) or {}).get('tokens') or {}
-        key = key or tokens.get('access_token') or (providers.get(pid) or {}).get('access_token') or ''
-        principal = str(tokens.get('account_id') or '')
-        if pid == 'anthropic' and not key and not injected:
-            key = borrow_claude_token()
-        if pid == 'openai-codex' and not key and not injected:
-            codex_key, codex_acct = borrow_codex_auth()
-            key = key or codex_key
-            principal = principal or codex_acct
-        kind = 'subscription' if pid in {'anthropic', 'openai-codex', 'opencode-go', 'copilot', 'antigravity'} else 'api'
-        if pid == 'nvidia' and (not conf.get('base_url') or conf['base_url'].rstrip('/') == BASES['nvidia']):
+        official_base = BASES.get(pid) or ''
+        effective_base = str(conf.get('base_url') or official_base or entry.get('base_url') or '').rstrip('/')
+        from urllib.parse import urlsplit
+        official_host = (urlsplit(official_base).hostname or '').lower() if official_base else ''
+        effective_host = (urlsplit(effective_base).hostname or '').lower() if effective_base else ''
+        custom_host = bool(official_host and effective_host and effective_host != official_host)
+        key = str(secrets.get(conf.get('key_env', ''), '') or conf.get('api_key') or '')
+        principal = ''
+        if not custom_host:
+            if not key:
+                key = next((str(secrets[k]) for k in ENV_KEYS.get(pid, []) if secrets.get(k)), '')
+            key = key or entry.get('access_token') or entry.get('api_key') or ''
+            tokens = (providers.get(pid) or {}).get('tokens') or {}
+            key = key or tokens.get('access_token') or (providers.get(pid) or {}).get('access_token') or ''
+            principal = str(tokens.get('account_id') or '')
+            if pid == 'anthropic' and not key and not injected:
+                key = borrow_claude_token()
+            if pid == 'openai-codex' and not key and not injected:
+                codex_key, codex_acct = borrow_codex_auth()
+                key = key or codex_key
+                principal = principal or codex_acct
+        kind = 'api' if custom_host else ('subscription' if pid in {'anthropic', 'openai-codex', 'opencode-go', 'copilot', 'antigravity'} else 'api')
+        if pid == 'nvidia' and not custom_host and (not conf.get('base_url') or effective_base == BASES['nvidia']):
             kind = 'free'
         if pid == 'anthropic' and key.startswith('sk-ant-api'):
             kind = 'api'
-        routes.append(Route(pid, str(conf.get('name') or NAMES.get(pid) or pid), str(conf.get('base_url') or BASES.get(pid) or entry.get('base_url') or '').rstrip('/'), key, kind, pid == 'anthropic' and bool(key) and not key.startswith('sk-ant-api'), principal))
+        is_oauth = (not custom_host) and pid == 'anthropic' and bool(key) and not key.startswith('sk-ant-api')
+        routes.append(Route(pid, str(conf.get('name') or NAMES.get(pid) or pid), effective_base, key, kind, is_oauth, principal))
     routes.append(Route('muse-code', NAMES['muse-code'], kind='cli'))
     return routes
 

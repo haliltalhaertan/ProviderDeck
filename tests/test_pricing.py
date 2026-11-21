@@ -106,3 +106,16 @@ class PricingTests(unittest.TestCase):
         self.assertEqual(m['verification']['state'], 'untested')
         for mid in ['deepseek-v4.1-flash-abliterated', 'deepseek-v4-pro-0813', 'unknown/deepseek-v4.1-flash']:
             self.assertEqual(pricing.normalize_model('openrouter', {'id': mid})['canonical_key'], mid)
+
+    def test_cache_write_and_topup_fee_pricing(self):
+        from providerdeck.pricing import normalize_model, estimate_cost
+        m = normalize_model('openrouter', {
+            'id': 'anthropic/claude-sonnet-5.5',
+            'pricing': {'prompt': '0.000003', 'completion': '0.000015', 'input_cache_read': '0.0000003', 'input_cache_write': '0.00000375', 'request': '0'},
+        })
+        self.assertEqual(m['pricing']['cache_write_per_million_usd'], 3.75)
+        # 1M input (50% cache read @ 0.3, 25% cache write @ 3.75, 25% fresh @ 3.0) + 0 output
+        est = estimate_cost(m, 1_000_000, 0, cache_percent=50, cache_write_percent=25, topup_fee_percent=5)
+        expected = (0.25 * 3.0 + 0.50 * 0.3 + 0.25 * 3.75) * 1.05
+        self.assertAlmostEqual(est['cost_usd'], expected, places=6)
+        self.assertIn('+%', est['warning'])

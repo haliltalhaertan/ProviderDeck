@@ -42,29 +42,39 @@
     const input = Math.max(0, Number(workload && workload.input) || 0);
     const output = Math.max(0, Number(workload && workload.output) || 0);
     const pct = Math.min(100, Math.max(0, Number(workload && workload.cachePercent) || 0));
+    const writePct = Math.min(100 - pct, Math.max(0, Number(workload && workload.cacheWritePercent) || 0));
+    const topupPct = Math.min(100, Math.max(0, Number(workload && workload.topupFeePercent) || 0));
     const warnings = [];
     let cacheRate = p.cache_read_per_million_usd;
     if (!isNum(cacheRate)) {
       cacheRate = p.input_per_million_usd;
       if (pct > 0 && input > 0) warnings.push('Önbellek okuma fiyatı bilinmiyor; önbellekli girdi tam girdi fiyatıyla hesaplandı.');
     }
+    let writeRate = p.cache_write_per_million_usd;
+    if (!isNum(writeRate)) {
+      writeRate = p.input_per_million_usd;
+      if (writePct > 0 && input > 0) warnings.push('Önbellek yazma fiyatı bilinmiyor; önbellek yazma tam girdi fiyatıyla hesaplandı.');
+    }
     const cached = input * pct / 100;
-    const fresh = input - cached;
+    const cacheWrite = input * writePct / 100;
+    const fresh = Math.max(0, input - cached - cacheWrite);
     const requestFee = isNum(p.request_usd) ? p.request_usd : 0;
-    const cost = (fresh * p.input_per_million_usd + cached * cacheRate + output * p.output_per_million_usd) / 1e6 + requestFee;
+    let cost = (fresh * p.input_per_million_usd + cached * cacheRate + cacheWrite * writeRate + output * p.output_per_million_usd) / 1e6 + requestFee;
+    if (topupPct > 0) {
+      cost *= 1 + topupPct / 100;
+      warnings.push('Yükleme komisyonu (+%' + topupPct + ') dahil edildi.');
+    }
     if (p.variable) warnings.push('Fiyat alt sağlayıcıya göre değişebilir; katalog tahmini.');
-    return {
-      cost_usd: r10(cost),
-      kind: 'usd',
-      warnings,
-      parts: {
-        input: r10(fresh * p.input_per_million_usd / 1e6),
-        cache: r10(cached * cacheRate / 1e6),
-        output: r10(output * p.output_per_million_usd / 1e6),
-        request: requestFee,
-      },
-      tokens: { fresh, cached, output },
+    const parts = {
+      input: r10(fresh * p.input_per_million_usd / 1e6),
+      cache: r10(cached * cacheRate / 1e6),
+      output: r10(output * p.output_per_million_usd / 1e6),
+      request: requestFee,
     };
+    if (cacheWrite > 0) parts.cache_write = r10(cacheWrite * writeRate / 1e6);
+    const tokens = { fresh, cached, output };
+    if (cacheWrite > 0) tokens.cache_write = cacheWrite;
+    return { cost_usd: r10(cost), kind: 'usd', warnings, parts, tokens };
   };
 
   /* Rota durumu: 'usable' (model uygun + hesap hazır), 'blocked', 'unknown'.
@@ -267,7 +277,7 @@
       models: arr(raw.models).filter((m) => m && typeof m === 'object' && m.id != null),
       notes: arr(raw.notes).filter((s) => typeof s === 'string'),
       errors: arr(raw.errors).filter((e) => e && typeof e === 'object'),
-      refresh: { running: !!r.running, started_at: r.started_at || null, finished_at: r.finished_at || null, error: r.error || null },
+      refresh: { running: !!r.running, offline: !!r.offline, started_at: r.started_at || null, finished_at: r.finished_at || null, error: r.error || null },
     };
   };
 
