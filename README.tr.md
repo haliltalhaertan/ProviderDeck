@@ -1,6 +1,8 @@
 # ProviderDeck
 
 [![CI](https://github.com/haliltalhaertan/ProviderDeck/actions/workflows/ci.yml/badge.svg)](https://github.com/haliltalhaertan/ProviderDeck/actions/workflows/ci.yml)
+[![Son Sürüm](https://img.shields.io/github/v/release/haliltalhaertan/ProviderDeck)](https://github.com/haliltalhaertan/ProviderDeck/releases/latest)
+[![İndirmeler](https://img.shields.io/github/downloads/haliltalhaertan/ProviderDeck/total.svg)](https://github.com/haliltalhaertan/ProviderDeck/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 [English README](README.md) · [Ajan Kurulum Rehberi (`AGENTS.md`)](AGENTS.md)
@@ -20,6 +22,19 @@ Sıfır frontend build adımı (saf HTML/CSS/JS, CDN yok) ve hafif Python yerel 
 > Google: %96,4 · 5s %88,5
 > Muse: %64 · 5s %100
 > ```
+
+---
+
+## Windows İçin Tek Tıkla İndir (Python Gerektirmez)
+
+En güncel taşınabilir Windows paketini [**GitHub Releases**](https://github.com/haliltalhaertan/ProviderDeck/releases/latest) sayfasından indirebilirsiniz:
+
+1. **`ProviderDeck-v0.2.1-windows-x64.zip`** arşivini indirin (doğrulama için `SHA256SUMS.txt` dahildir) ve `ProviderDeck` klasörünü bilgisayarınızda bir yere çıkarın.
+2. **`ProviderDeck.exe`** dosyasına çift tıklayın — yerel panel (`http://127.0.0.1:8766`) ve Windows sistem tepsisi simgesi otomatik başlar.
+3. **İsteğe bağlı API anahtarları:** `.env.example` dosyasını `ProviderDeck.exe` ile aynı klasörde `.env` olarak kopyalayıp anahtarlarınızı ekleyin. Yerel CLI abonelikleri (Claude Code, Codex, Antigravity, Muse Code) otomatik ve salt-okunur okunur.
+4. Arka plan servisini kapatmak için **`ProviderDeck-Stop.cmd`** dosyasına çift tıklayın.
+
+> Linux, macOS veya Python kullananlar [Releases](https://github.com/haliltalhaertan/ProviderDeck/releases/latest) sayfasındaki `.whl` paketini (`pip install providerdeck-*.whl` → `providerdeck`) kurabilir veya aşağıdaki kaynak kod kurulumunu kullanabilir.
 
 ---
 

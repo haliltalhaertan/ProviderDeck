@@ -7,10 +7,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from math import ceil
 from pathlib import Path
+import sys
 import threading
 from time import monotonic
 from urllib.parse import urlsplit
 
+from . import __version__
 from .data import public_snapshot
 from .nous_probe import MODEL as NOUS_FREE_MODEL, RESULTS as NOUS_RESULTS, run_nous_free_test
 
@@ -131,7 +133,7 @@ def build_server(*, static_dir: Path, state_loader, refresher, port: int = 0, ma
     nous_test = NousTestGate(nous_test_enabled and refresh_enabled)
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = 'ProviderDeck/0.1'
+        server_version = 'ProviderDeck/' + __version__
         sys_version = ''
 
         def send_bytes(self, status, body, content_type):
@@ -185,7 +187,7 @@ def build_server(*, static_dir: Path, state_loader, refresher, port: int = 0, ma
                 self.send_json(200, maintenance.state() if maintenance else {'automatic_enabled': False, 'apply_enabled': False, 'busy': False, 'incidents': [], 'documents': {}, 'reviews': {}, 'available_docs': []})
                 return
             if path == '/api/health':
-                self.send_json(200, {'ok': True, 'app': 'providerdeck', 'version': '0.1.0'})
+                self.send_json(200, {'ok': True, 'app': 'providerdeck', 'version': __version__})
                 return
             assets = {'/maintenance': ('maintenance.html', 'text/html'), '/maintenance.html': ('maintenance.html', 'text/html'), '/maintenance.js': ('maintenance.js', 'text/javascript'), '/maintenance.css': ('maintenance.css', 'text/css'), '/': ('index.html', 'text/html'), '/index.html': ('index.html', 'text/html'), '/style.css': ('style.css', 'text/css'), '/app.js': ('app.js', 'text/javascript'), '/core.js': ('core.js', 'text/javascript')}
             if path not in assets:
@@ -262,7 +264,10 @@ def main(argv=None):
     from .maintenance import MaintenanceStore
     maintenance = MaintenanceStore(data_dir() / 'maintenance')
     folder = Path(__file__).resolve().parent
-    settings = dict(static_dir=folder / 'web', state_loader=load_cached_snapshot, refresher=refresh_snapshot,
+    static_dir = folder / 'web'
+    if not static_dir.is_dir() and getattr(sys, '_MEIPASS', None):
+        static_dir = Path(sys._MEIPASS) / 'providerdeck' / 'web'
+    settings = dict(static_dir=static_dir, state_loader=load_cached_snapshot, refresher=refresh_snapshot,
                     maintenance=maintenance, nous_test_enabled=not args.no_refresh,
                     refresh_enabled=not args.no_refresh,
                     auto_refresh_seconds=None if args.no_refresh else AUTO_REFRESH_SECONDS)
@@ -288,7 +293,8 @@ def main(argv=None):
     finally:
         if temporary and temporary.exists():
             temporary.unlink(missing_ok=True)
-    print('PROVIDERDECK_READY ' + url, flush=True)
+    if sys.stdout is not None:
+        print('PROVIDERDECK_READY ' + url, flush=True)
     if not args.no_refresh:
         service.store.request_refresh(source='startup')
     try:

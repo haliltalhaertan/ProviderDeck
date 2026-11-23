@@ -1,6 +1,8 @@
 # ProviderDeck
 
 [![CI](https://github.com/haliltalhaertan/ProviderDeck/actions/workflows/ci.yml/badge.svg)](https://github.com/haliltalhaertan/ProviderDeck/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/haliltalhaertan/ProviderDeck)](https://github.com/haliltalhaertan/ProviderDeck/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/haliltalhaertan/ProviderDeck/total.svg)](https://github.com/haliltalhaertan/ProviderDeck/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](pyproject.toml)
 
@@ -21,6 +23,19 @@ Works with **Claude Code**, **OpenAI Codex**, **Google Antigravity (`agy`)**, **
 > Google: %96,4 · 5s %88,5
 > Muse: %64 · 5s %100
 > ```
+
+---
+
+## Download for Windows (No Python Required)
+
+Grab the latest standalone portable bundle from [**GitHub Releases**](https://github.com/haliltalhaertan/ProviderDeck/releases/latest):
+
+1. Download **`ProviderDeck-v0.2.1-windows-x64.zip`** (with `SHA256SUMS.txt` verification) and extract the `ProviderDeck` folder anywhere.
+2. Double-click **`ProviderDeck.exe`** — opens `http://127.0.0.1:8766` and starts the Windows system tray icon automatically.
+3. **Optional API keys:** Copy `.env.example` to `.env` right next to `ProviderDeck.exe`. Local CLI subscriptions (Claude Code, Codex, Antigravity, Muse Code) are detected automatically (read-only).
+4. Double-click **`ProviderDeck-Stop.cmd`** to stop the background server and tray icon cleanly.
+
+> Python users on Windows, Linux, or macOS can also install the `.whl` package from [Releases](https://github.com/haliltalhaertan/ProviderDeck/releases/latest) (`pip install providerdeck-*.whl` → `providerdeck`) or run from source below.
 
 ---
 

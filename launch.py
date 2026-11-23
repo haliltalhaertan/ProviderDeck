@@ -36,9 +36,15 @@ def _trim_log(path, max_bytes=2_000_000):
         pass
 
 
+def _safe_print(message, *, err=False):
+    import sys
+    stream = sys.stderr if err else sys.stdout
+    if stream is not None:
+        print(message, file=stream)
+
+
 def main(argv=None):
     import argparse
-    import json
     import os
     from pathlib import Path
     import subprocess
@@ -46,7 +52,17 @@ def main(argv=None):
     import time
     import urllib.request
     import webbrowser
-    root = Path(__file__).resolve().parent
+
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if raw_argv and raw_argv[0] == '--run-server':
+        from providerdeck.server import main as server_main
+        return server_main(raw_argv[1:])
+    if raw_argv and raw_argv[0] == '--run-tray':
+        from providerdeck.tray import main as tray_main
+        return tray_main(raw_argv[1:])
+
+    frozen = bool(getattr(sys, 'frozen', False))
+    root = Path(sys.executable).resolve().parent if frozen else Path(__file__).resolve().parent
     from providerdeck.data import data_dir
     parser = argparse.ArgumentParser(description='ProviderDeck başlat / durdur')
     parser.add_argument('--no-browser', action='store_true')
@@ -54,32 +70,38 @@ def main(argv=None):
     parser.add_argument('--offline', action='store_true', help='Önbellekten başlat, ağ isteği yapma')
     parser.add_argument('--runtime', type=Path, default=data_dir()/'runtime.json')
     parser.add_argument('--stop', action='store_true')
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_argv)
     url = existing_url(args.runtime)
     if args.stop:
         if url:
             request = urllib.request.Request(url+'/api/shutdown', data=b'', headers={'X-ProviderDeck-Request':'1'}, method='POST')
             urllib.request.urlopen(request, timeout=3).close()
-        print('ProviderDeck durduruldu.' if url else 'ProviderDeck zaten kapalı.')
+        _safe_print('ProviderDeck durduruldu.' if url else 'ProviderDeck zaten kapalı.')
         return 0
-    candidates = []
-    if os.environ.get('PROVIDERDECK_PYTHON'):
-        candidates.append(Path(os.environ['PROVIDERDECK_PYTHON']))
-    venv_py = root / ('.venv/Scripts/python.exe' if os.name == 'nt' else '.venv/bin/python')
-    candidates.append(venv_py)
-    home = Path(os.environ.get('HERMES_HOME') or Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'hermes')
-    candidates.append(home / ('hermes-agent/venv/Scripts/python.exe' if os.name == 'nt' else 'hermes-agent/venv/bin/python'))
-    interpreter = next((str(p) for p in candidates if p.is_file()), sys.executable)
+    if frozen:
+        interpreter = sys.executable
+    else:
+        candidates = []
+        if os.environ.get('PROVIDERDECK_PYTHON'):
+            candidates.append(Path(os.environ['PROVIDERDECK_PYTHON']))
+        venv_py = root / ('.venv/Scripts/python.exe' if os.name == 'nt' else '.venv/bin/python')
+        candidates.append(venv_py)
+        home = Path(os.environ.get('HERMES_HOME') or Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'hermes')
+        candidates.append(home / ('hermes-agent/venv/Scripts/python.exe' if os.name == 'nt' else 'hermes-agent/venv/bin/python'))
+        interpreter = next((str(p) for p in candidates if p.is_file()), sys.executable)
     flags = (subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == 'nt' else 0
     if not url:
         args.runtime.parent.mkdir(parents=True, exist_ok=True)
-        command = [interpreter, '-m', 'providerdeck.server', '--port', '8766', '--runtime', str(args.runtime.resolve())]
+        if frozen:
+            command = [interpreter, '--run-server', '--port', '8766', '--runtime', str(args.runtime.resolve())]
+        else:
+            command = [interpreter, '-m', 'providerdeck.server', '--port', '8766', '--runtime', str(args.runtime.resolve())]
         if args.offline:
             command.append('--no-refresh')
         _trim_log(args.runtime.parent/'server.log')
         with (args.runtime.parent/'server.log').open('ab') as log:
             process = subprocess.Popen(command, cwd=root, stdin=subprocess.DEVNULL, stdout=log, stderr=log, creationflags=flags, close_fds=True)
-        for _ in range(100):
+        for _ in range(300):
             url = existing_url(args.runtime)
             if url:
                 break
@@ -87,19 +109,21 @@ def main(argv=None):
                 break
             time.sleep(0.1)
         if not url:
-            print('Yerel sunucu açılamadı. data/server.log dosyasını kontrol edin.', file=sys.stderr)
+            _safe_print('Yerel sunucu açılamadı. server.log dosyasını kontrol edin.', err=True)
             return 1
     if sys.platform == 'win32' and not args.no_tray:
         try:
             _trim_log(args.runtime.parent/'tray.log')
+            tray_command = ([interpreter, '--run-tray', '--runtime', str(args.runtime.resolve())]
+                            if frozen else [interpreter, '-m', 'providerdeck.tray', '--runtime', str(args.runtime.resolve())])
             with (args.runtime.parent/'tray.log').open('ab') as log:
-                subprocess.Popen([interpreter, '-m', 'providerdeck.tray', '--runtime', str(args.runtime.resolve())],
+                subprocess.Popen(tray_command,
                                  cwd=root, stdin=subprocess.DEVNULL, stdout=log, stderr=log, creationflags=flags, close_fds=True)
         except OSError:
-            print('Bildirim alanı simgesi başlatılamadı; panel çalışıyor.', file=sys.stderr)
+            _safe_print('Bildirim alanı simgesi başlatılamadı; panel çalışıyor.', err=True)
     if not args.no_browser:
         webbrowser.open(url)
-    print(url)
+    _safe_print(url)
     return 0
 
 

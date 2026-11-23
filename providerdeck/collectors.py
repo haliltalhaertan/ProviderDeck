@@ -69,10 +69,23 @@ class Route:
     principal: str = field(default='', repr=False)
 
 
+def env_file_paths(home=None):
+    import sys
+    base_home = Path(home) if home else hermes_home()
+    paths = [Path(__file__).resolve().parents[1] / '.env', base_home / '.env']
+    if getattr(sys, 'frozen', False):
+        paths.append(Path(sys.executable).resolve().parent / '.env')
+    return tuple(paths)
+
+
 def borrow_claude_token():
     """Read-only Claude Code OAuth token lookup (standalone ~/.claude or optional Hermes)."""
     import sys
-    for candidate in (hermes_home() / 'hermes-agent', Path(sys.executable).resolve().parents[2]):
+    exe_parents = Path(sys.executable).resolve().parents
+    candidates = [hermes_home() / 'hermes-agent']
+    if len(exe_parents) > 2:
+        candidates.append(exe_parents[2])
+    for candidate in candidates:
         if (candidate / 'agent/anthropic_credentials.py').is_file() and str(candidate) not in sys.path:
             sys.path.append(str(candidate))
     try:
@@ -146,7 +159,7 @@ def discover_routes(*, config=None, auth=None, secrets=None, home=None):
         from dotenv import dotenv_values
         # dotenv_values parses without rewriting .env, exporting or invoking plugins.
         secrets = dict(os.environ)
-        for env_path in (Path(__file__).resolve().parents[1] / '.env', home / '.env'):
+        for env_path in env_file_paths(home):
             if env_path.is_file():
                 secrets.update({k: v for k, v in dotenv_values(env_path, encoding='utf-8-sig', interpolate=False).items() if v is not None})
     custom = config.get('providers') or {}

@@ -1,0 +1,295 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build and publish (e.g. v0.2.1)'
+        required: true
+        default: 'v0.2.1'
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  build-windows:
+    name: Build Windows x64 Bundle
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies & PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Run Python unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Build standalone Windows bundle
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onedir --noconsole `
+            --name ProviderDeck `
+            --icon providerdeck/tray.ico `
+            --add-data "providerdeck/web;providerdeck/web" `
+            --add-data "providerdeck/tray.ico;providerdeck" `
+            --hidden-import providerdeck.server `
+            --hidden-import providerdeck.tray `
+            --hidden-import providerdeck.data `
+            --hidden-import providerdeck.collectors `
+            --hidden-import providerdeck.pricing `
+            --hidden-import providerdeck.maintenance `
+            --hidden-import providerdeck.nous_probe `
+            --hidden-import httpx `
+            --hidden-import yaml `
+            --hidden-import dotenv `
+            --hidden-import win32api `
+            --hidden-import win32con `
+            --hidden-import win32event `
+            --hidden-import win32gui `
+            --collect-data certifi `
+            launch.py
+
+      - name: Stage portable helper scripts and docs
+        shell: pwsh
+        run: |
+          $distDir = "dist/ProviderDeck"
+          Copy-Item ".env.example" "$distDir/.env.example"
+          Copy-Item "LICENSE" "$distDir/LICENSE"
+          Copy-Item "README.md" "$distDir/README.md"
+          Copy-Item "README.tr.md" "$distDir/README.tr.md"
+
+          Set-Content -Path "$distDir/ProviderDeck-Stop.cmd" -Value "@echo off`r`n`"%~dp0ProviderDeck.exe`" --stop`r`n" -Encoding Ascii
+          Set-Content -Path "$distDir/ProviderDeck-Offline.cmd" -Value "@echo off`r`n`"%~dp0ProviderDeck.exe`" --offline`r`n" -Encoding Ascii
+          Set-Content -Path "$distDir/ProviderDeck-Background.cmd" -Value "@echo off`r`n`"%~dp0ProviderDeck.exe`" --no-browser`r`n" -Encoding Ascii
+
+          @"
+          ProviderDeck Portable (Windows x64)
+          ===================================
+
+          Quick Start (English):
+          1. Extract this entire ProviderDeck folder anywhere (e.g. C:\Tools\ProviderDeck).
+          2. Double-click ProviderDeck.exe to start the local dashboard (http://127.0.0.1:8766) and Windows system tray icon.
+          3. Optional: Copy .env.example to .env in this same folder to monitor API wallet balances.
+             Local CLI subscriptions (Claude Code, Codex, Antigravity, Muse Code) are detected automatically (read-only).
+          4. Double-click ProviderDeck-Stop.cmd to stop the background server and tray icon.
+          5. Local cache & logs are stored under %LOCALAPPDATA%\ProviderDeck.
+
+          Hızlı Başlangıç (Türkçe):
+          1. Bu ProviderDeck klasörünü bilgisayarınızda bir yere çıkarın (ör. C:\Tools\ProviderDeck).
+          2. ProviderDeck.exe dosyasına çift tıklayarak yerel paneli (http://127.0.0.1:8766) ve sistem tepsisi simgesini başlatın.
+          3. İsteğe bağlı: API cüzdan bakiyeleri için .env.example dosyasını bu klasörde .env olarak kopyalayıp anahtarlarınızı ekleyin.
+             Yerel CLI abonelikleri (Claude Code, Codex, Antigravity, Muse Code) otomatik ve salt-okunur okunur.
+          4. Arka plan servisini kapatmak için ProviderDeck-Stop.cmd dosyasına çift tıklayın.
+          5. Yerel önbellek ve günlükler %LOCALAPPDATA%\ProviderDeck klasöründe saklanır.
+          "@ | Set-Content -Path "$distDir/QUICKSTART.txt" -Encoding UTF8
+
+      - name: Smoke-test frozen ProviderDeck.exe
+        shell: pwsh
+        run: |
+          @'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+          import time
+          import urllib.error
+          import urllib.request
+
+          exe = Path("dist/ProviderDeck/ProviderDeck.exe").resolve()
+          assert exe.is_file(), f"Missing executable: {exe}"
+          internal = exe.parent / "_internal"
+          assert (internal / "providerdeck" / "tray.ico").is_file(), "Missing bundled tray.ico"
+          assert (internal / "providerdeck" / "web" / "index.html").is_file(), "Missing bundled web assets"
+          assert any(internal.rglob("cacert.pem")), "Missing bundled certifi CA bundle"
+
+          with tempfile.TemporaryDirectory() as tmp:
+              tmp_path = Path(tmp)
+              runtime = tmp_path / "runtime.json"
+              env = {**os.environ, "PROVIDERDECK_DATA_DIR": str(tmp_path / "data")}
+              start = subprocess.run(
+                  [str(exe), "--offline", "--no-browser", "--no-tray", "--runtime", str(runtime)],
+                  env=env,
+                  capture_output=True,
+                  text=True,
+                  timeout=30,
+              )
+              assert start.returncode == 0, f"Start failed: {start.returncode} {start.stderr}"
+              assert runtime.is_file(), "runtime.json was not written"
+              record = json.loads(runtime.read_text(encoding="utf-8"))
+              url = record["url"]
+              try:
+                  with urllib.request.urlopen(url + "/api/health", timeout=5) as resp:
+                      assert resp.status == 200
+                      health = json.load(resp)
+                      assert health["ok"] is True and health["app"] == "providerdeck", health
+
+                  with urllib.request.urlopen(url + "/", timeout=5) as resp:
+                      assert resp.status == 200
+                      html = resp.read().decode("utf-8")
+                      assert "ProviderDeck" in html
+
+                  with urllib.request.urlopen(url + "/api/state", timeout=5) as resp:
+                      assert resp.status == 200
+                      state = json.load(resp)
+                      assert state["refresh"]["offline"] is True, state["refresh"]
+
+                  req = urllib.request.Request(
+                      url + "/api/refresh",
+                      data=b"",
+                      headers={"X-ProviderDeck-Request": "1"},
+                      method="POST",
+                  )
+                  try:
+                      urllib.request.urlopen(req, timeout=5)
+                      raise AssertionError("Expected HTTP 503 for POST /api/refresh in --offline mode")
+                  except urllib.error.HTTPError as err:
+                      assert err.code == 503, err.code
+              finally:
+                  stop = subprocess.run(
+                      [str(exe), "--stop", "--runtime", str(runtime)],
+                      env=env,
+                      capture_output=True,
+                      text=True,
+                      timeout=15,
+                  )
+                  assert stop.returncode == 0, f"Stop failed: {stop.returncode} {stop.stderr}"
+                  for _ in range(100):
+                      try:
+                          (tmp_path / "server.log").unlink(missing_ok=True)
+                          break
+                      except PermissionError:
+                          time.sleep(0.05)
+          print("Frozen Windows executable smoke test PASSED.")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package Windows portable zip
+        shell: pwsh
+        run: |
+          @'
+          import os
+          from pathlib import Path
+          import zipfile
+
+          tag = os.environ["RELEASE_TAG"]
+          src = Path("dist/ProviderDeck")
+          out_dir = Path("release-assets")
+          out_dir.mkdir(parents=True, exist_ok=True)
+          archive = out_dir / f"ProviderDeck-{tag}-windows-x64.zip"
+          with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+              for path in sorted(src.rglob("*")):
+                  if path.is_file():
+                      arcname = Path("ProviderDeck") / path.relative_to(src)
+                      zf.write(path, arcname.as_posix())
+          print(f"Created {archive} ({archive.stat().st_size} bytes)")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Windows release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-bundle
+          path: release-assets/ProviderDeck-*-windows-x64.zip
+          if-no-files-found: error
+
+  build-python:
+    name: Build Python Wheel & Sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies & build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt build twine
+
+      - name: Run Python & frontend unit tests
+        run: |
+          python -m unittest discover -s tests -p "test_*.py" -v
+          node tests/ui.test.cjs
+
+      - name: Build sdist and wheel
+        run: |
+          python -m build
+          twine check dist/*
+
+      - name: Upload Python distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-python]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS.txt
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${RELEASE_TAG}"
+          cat > release-notes.md <<EOF
+          ## ProviderDeck ${TAG}
+
+          ### Downloads
+          - **Windows x64 Portable (No Python Required):** \`ProviderDeck-${TAG}-windows-x64.zip\`
+            Unzip anywhere and double-click \`ProviderDeck.exe\` (optional \`.env\` in the same folder for API keys; \`ProviderDeck-Stop.cmd\` to stop).
+          - **Python Wheel / Source Distribution:** \`providerdeck-*.whl\` & \`providerdeck-*.tar.gz\`
+            Install via \`pip install providerdeck-*.whl\` and run \`providerdeck\`.
+          - **Checksums:** \`SHA256SUMS.txt\`
+
+          ### Highlights
+          - Standalone Windows x64 portable executable built and smoke-tested in CI (dashboard + native Windows system tray, no Python installation required).
+          - Host-pinned built-in credentials (custom \`base_url\` never inherits built-in provider keys or Claude/Codex OAuth tokens).
+          - Strict \`--offline\` enforcement across manual refresh, free-model probe, and maintenance endpoints (HTTP 503).
+          - Workload cost estimator now includes **cache write cost** and **top-up/loading fee %** alongside input, output, and cache-read pricing.
+          - Improved Windows startup resilience (60s tray icon registration retry & 30s local server startup wait).
+          EOF
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" release-assets/* --clobber
+            gh release edit "${TAG}" --notes-file release-notes.md
+          else
+            gh release create "${TAG}" release-assets/* \
+              --title "ProviderDeck ${TAG}" \
+              --notes-file release-notes.md
+          fi

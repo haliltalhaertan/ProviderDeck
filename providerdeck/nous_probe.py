@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from time import monotonic
 
-from .collectors import hermes_home, read_json
+from .collectors import env_file_paths, read_json
 
 BASE = 'https://inference-api.nousresearch.com/v1'
 MODEL = 'stepfun/step-3.7-flash:free'
@@ -77,7 +77,7 @@ def run_nous_free_test(*, home=None, read_catalog=None, send=None):
         key = dotenv_values(Path(home) / '.env', encoding='utf-8-sig', interpolate=False).get('NOUS_API_KEY')
     else:
         key = os.environ.get('NOUS_API_KEY')
-        for env_path in (Path(__file__).resolve().parents[1] / '.env', hermes_home() / '.env'):
+        for env_path in env_file_paths():
             if env_path.is_file():
                 val = dotenv_values(env_path, encoding='utf-8-sig', interpolate=False).get('NOUS_API_KEY')
                 if val:

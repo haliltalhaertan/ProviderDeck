@@ -11,6 +11,7 @@ import http.client
 import json
 import math
 from pathlib import Path
+import sys
 from tempfile import NamedTemporaryFile
 import threading
 from urllib.parse import urlsplit
@@ -262,7 +263,10 @@ def run_tray(runtime, icon_guid=APP_GUID):
     wm_tray, wm_update = wc.WM_APP + 6, wc.WM_APP + 7
     taskbar_created = gui.RegisterWindowMessage('TaskbarCreated')
     hinst = api.GetModuleHandle(None)
-    image = str(Path(__file__).with_name('tray.ico'))
+    icon_path = Path(__file__).with_name('tray.ico')
+    if not icon_path.is_file() and getattr(sys, '_MEIPASS', None):
+        icon_path = Path(sys._MEIPASS) / 'providerdeck' / 'tray.ico'
+    image = str(icon_path)
     hicon = gui.LoadImage(0, image, wc.IMAGE_ICON, 0, 0, wc.LR_LOADFROMFILE | wc.LR_DEFAULTSIZE)
     notify = ct.windll.shell32.Shell_NotifyIconW
     notify.argtypes = [w.DWORD, ct.POINTER(NotifyData)]
@@ -401,7 +405,12 @@ def run_tray(runtime, icon_guid=APP_GUID):
     hwnd = gui.CreateWindow(atom, 'ProviderDeck', wc.WS_POPUP, 0, 0, 0, 0, 0, 0, hinst, None)
     notify_data.hWnd = hwnd
     try:
-        if not add_icon():
+        for _ in range(30):
+            if add_icon():
+                break
+            if stopped.wait(2):
+                return 0
+        if not registered:
             return 1
         threading.Thread(target=poll, args=(hwnd,), daemon=True).start()
         gui.PumpMessages()
@@ -413,10 +422,10 @@ def run_tray(runtime, icon_guid=APP_GUID):
         mutex.Close()
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description='ProviderDeck Windows bildirim alanı')
     parser.add_argument('--runtime', required=True, type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     return run_tray(args.runtime)
 
 

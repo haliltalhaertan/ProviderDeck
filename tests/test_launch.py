@@ -38,6 +38,31 @@ class LauncherTests(unittest.TestCase):
                 self.assertEqual(module.main(['--no-browser', '--no-tray', '--runtime', str(runtime)]), 0)
                 popen.assert_not_called()
 
+    def test_frozen_launcher_dispatches_internal_flags_without_python_minus_m(self):
+        from unittest.mock import MagicMock, patch
+        import tempfile
+        module = self.module()
+        with patch('providerdeck.server.main', return_value=7) as srv_main:
+            self.assertEqual(module.main(['--run-server', '--port', '8766']), 7)
+            srv_main.assert_called_once_with(['--port', '8766'])
+        with patch('providerdeck.tray.main', return_value=9) as tray_main:
+            self.assertEqual(module.main(['--run-tray', '--runtime', 'r.json']), 9)
+            tray_main.assert_called_once_with(['--runtime', 'r.json'])
+        with tempfile.TemporaryDirectory() as folder:
+            runtime = Path(folder) / 'runtime.json'
+            fake_proc = MagicMock()
+            fake_proc.poll.return_value = None
+            with patch.object(sys, 'frozen', True, create=True), \
+                 patch.object(module, 'existing_url', side_effect=[None, 'http://127.0.0.1:8766']), \
+                 patch('subprocess.Popen', return_value=fake_proc) as popen, \
+                 patch('webbrowser.open') as browse:
+                self.assertEqual(module.main(['--no-browser', '--offline', '--runtime', str(runtime)]), 0)
+                browse.assert_not_called()
+                commands = [call.args[0] for call in popen.call_args_list]
+                self.assertEqual(commands[0], [sys.executable, '--run-server', '--port', '8766', '--runtime', str(runtime.resolve()), '--no-refresh'])
+                if sys.platform == 'win32':
+                    self.assertEqual(commands[1], [sys.executable, '--run-tray', '--runtime', str(runtime.resolve())])
+
     def test_one_click_boots_real_offline_service_then_reuses_it(self):
         import os
         import subprocess
