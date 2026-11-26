@@ -39,7 +39,7 @@ class SnapshotStore:
 
     def read(self):
         with self._lock:
-            state = copy.deepcopy(self._state)
+            state = dict(self._state)
             state['refresh'] = dict(self._refresh)
             return state
 
@@ -60,8 +60,9 @@ class SnapshotStore:
     def _run_refresh(self):
         try:
             state = self._refresher()
+            safe = public_snapshot(state)
             with self._lock:
-                self._state = public_snapshot(state)
+                self._state = safe
             if self._observer:
                 self._observer(state)
         except Exception as exc:
@@ -145,7 +146,10 @@ def build_server(*, static_dir: Path, state_loader, refresher, port: int = 0, ma
             self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'")
             self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                pass
 
         def send_json(self, status, value):
             body = json.dumps(value, ensure_ascii=False, allow_nan=False).encode('utf-8')
@@ -179,6 +183,8 @@ def build_server(*, static_dir: Path, state_loader, refresher, port: int = 0, ma
             path = urlsplit(self.path).path
             if path == '/api/state':
                 state = store.read()
+                if self.headers.get('X-ProviderDeck-Summary') == '1':
+                    state['models'] = []
                 state['refresh']['offline'] = not refresh_enabled
                 state['nous_free_test'] = nous_test.state()
                 self.send_json(200, state)

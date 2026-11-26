@@ -200,9 +200,9 @@ def read_state(runtime):
         url = record['url']
         if record.get('app') != 'providerdeck' or not safe_runtime_url(url):
             return None, None
-        conn = http.client.HTTPConnection('127.0.0.1', urlsplit(url).port, timeout=2)
+        conn = http.client.HTTPConnection('127.0.0.1', urlsplit(url).port, timeout=5)
         try:
-            conn.request('GET', '/api/state', headers={'Accept': 'application/json'})
+            conn.request('GET', '/api/state', headers={'Accept': 'application/json', 'X-ProviderDeck-Summary': '1'})
             with conn.getresponse() as response:
                 if response.status != 200:
                     return None, None

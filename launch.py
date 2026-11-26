@@ -20,7 +20,7 @@ def existing_url(runtime):
         url = record.get('url')
         if not safe_runtime_url(url):
             return None
-        with urllib.request.urlopen(url + '/api/health', timeout=1.5) as response:
+        with urllib.request.urlopen(url + '/api/health', timeout=3.0) as response:
             health = json.load(response)
         return url.rstrip('/') if health.get('app') == 'providerdeck' and health.get('ok') is True else None
     except (OSError, ValueError, TypeError):
@@ -89,7 +89,7 @@ def main(argv=None):
         home = Path(os.environ.get('HERMES_HOME') or Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'hermes')
         candidates.append(home / ('hermes-agent/venv/Scripts/python.exe' if os.name == 'nt' else 'hermes-agent/venv/bin/python'))
         interpreter = next((str(p) for p in candidates if p.is_file()), sys.executable)
-    flags = (subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == 'nt' else 0
+    flags = (subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, 'NORMAL_PRIORITY_CLASS', 0x20)) if os.name == 'nt' else 0
     if not url:
         args.runtime.parent.mkdir(parents=True, exist_ok=True)
         if frozen:
